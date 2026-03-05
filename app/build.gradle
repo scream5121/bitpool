@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.poolmonitor'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.poolmonitor"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("poolmonitor.keystore")
+            storePassword "poolmonitor123"
+            keyAlias "poolmonitor"
+            keyPassword "poolmonitor123"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    // No third-party dependencies - zero supply chain risk
+}
