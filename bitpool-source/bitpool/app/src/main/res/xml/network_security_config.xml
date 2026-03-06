@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Block all cleartext globally -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- Whitelist: public-pool.io -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">public-pool.io</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Whitelist: mempool.space -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">mempool.space</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Whitelist: CoinGecko -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">api.coingecko.com</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
