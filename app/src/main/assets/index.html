@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none';
+           script-src 'unsafe-inline';
+           style-src 'unsafe-inline';
+           connect-src https://public-pool.io:40557 https://mempool.space https://api.coingecko.com;
+           img-src data:;
+           font-src data:;">
+<title>BitPool</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-card: #161b22;
+    --bg-card-alt: #1c2128;
+    --bg-input: #21262d;
+    --orange: #F7931A;
+    --orange-dim: rgba(247,147,26,0.15);
+    --text: #e6edf3;
+    --text-sub: #8b949e;
+    --text-muted: #484f58;
+    --green: #3fb950;
+    --green-dim: rgba(63,185,80,0.15);
+    --red: #f85149;
+    --red-dim: rgba(248,81,73,0.15);
+    --yellow: #d29922;
+    --blue: #58a6ff;
+    --purple: #bc8cff;
+    --border: #30363d;
+    --border-light: #21262d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif;
+         font-size: 14px; min-height: 100vh; overflow-x: hidden; }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: block; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--green); color: #000; font-size: 13px; font-weight: 700;
+    padding: 12px 22px; border-radius: 24px; opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 999; white-space: nowrap; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* SETUP */
+  #setup { display: flex; flex-direction: column; min-height: 100vh; }
+  .setup-hero {
+    background: linear-gradient(160deg, #161b22 0%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 24px 40px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .logo-emoji { font-size: 64px; display: block; margin-bottom: 16px; }
+  .app-name { font-size: 30px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
+  .app-sub { font-size: 14px; color: var(--text-sub); margin-top: 6px; }
+  .setup-body { padding: 32px 24px; flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .card { background: var(--bg-card); border-radius: 14px; padding: 22px; border: 1px solid var(--border);
+          width: 100%; max-width: 420px; margin-bottom: 16px; }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .card-sub { font-size: 13px; color: var(--text-sub); line-height: 1.55; margin-bottom: 18px; }
+  .input-wrap { position: relative; margin-bottom: 6px; }
+  .input-wrap input[type=text] {
+    background: var(--bg-input); border: 1.5px solid var(--border); border-radius: 9px;
+    color: var(--text); font-size: 13px; padding: 14px; width: 100%; outline: none;
+    font-family: 'Courier New', monospace; transition: border-color 0.15s;
+  }
+  .input-wrap input[type=text]:focus { border-color: var(--orange); }
+  .input-wrap input[type=text].valid { border-color: var(--green); }
+  .input-wrap input[type=text].invalid { border-color: var(--red); }
+  .input-status { font-size: 11px; margin: 5px 0 14px; height: 14px; transition: color 0.15s; }
+  .input-status.ok { color: var(--green); }
+  .input-status.err { color: var(--red); }
+  .btn-primary { background: var(--orange); color: #000; font-size: 15px; font-weight: 700;
+    border: none; border-radius: 9px; padding: 15px; width: 100%; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary:active { opacity: 0.8; }
+  .btn-primary:disabled { opacity: 0.4; cursor: default; }
+  .info-box { background: var(--bg-card-alt); border-radius: 9px; padding: 14px;
+    border: 1px solid var(--border-light); font-size: 12px; color: var(--text-sub);
+    line-height: 1.6; width: 100%; max-width: 420px; margin-bottom: 24px; }
+  .setup-footer { font-size: 11px; color: var(--text-muted); text-align: center; }
+
+  /* SHARED HEADER */
+  .page-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 16px 10px; position: sticky; top: 0; background: var(--bg); z-index: 10;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .page-header .title { font-size: 18px; font-weight: 700; }
+  .page-header .subtitle { font-size: 10px; color: var(--text-sub); font-family: monospace; margin-top: 2px; }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+  .badge { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font-size: 11px; cursor: pointer; }
+  .badge.countdown { color: var(--orange); font-weight: 600; }
+  .badge.icon-btn { color: var(--text-sub); }
+  .last-updated { font-size: 10px; color: var(--text-muted); padding: 4px 16px 0; }
+
+  /* DASHBOARD */
+  #dashboard { padding-bottom: 40px; }
+  .content { padding: 12px 16px 0; }
+  .section-hdr { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; }
+  .section-hdr::before, .section-hdr::after { content:''; flex:1; height:1px; background: var(--border); }
+  .section-hdr span { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 1.2px; }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .stat-card { background: var(--bg-card); border-radius: 10px; padding: 13px; border: 1px solid var(--border); flex: 1; }
+  .stat-card.full { flex: unset; width: 100%; }
+  .stat-label { font-size: 10px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.3px; margin-bottom: 4px; }
+  .stat-value { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; }
+  .stat-value.lg { font-size: 21px; }
+  .stat-sub { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+  .worker-card { background: var(--bg-card); border-radius: 10px; padding: 14px; border: 1px solid var(--border); margin-bottom: 8px; }
+  .worker-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .worker-session { font-size: 14px; font-weight: 700; font-family: monospace; }
+  .worker-name { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+  .status-badge { display: flex; align-items: center; gap: 5px; border-radius: 12px; padding: 4px 9px; font-size: 10px; font-weight: 700; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-online { background: var(--green-dim); color: var(--green); }
+  .status-offline { background: var(--red-dim); color: var(--red); }
+  .worker-stats { display: flex; justify-content: space-between; }
+  .worker-stat { flex: 1; text-align: center; }
+  .worker-stat-label { font-size: 9px; color: var(--text-muted); font-weight: 500; margin-bottom: 3px; }
+  .worker-stat-value { font-size: 12px; font-weight: 600; }
+  .error-banner { background: var(--red-dim); border: 1px solid var(--red); border-radius: 8px; padding: 11px 14px; margin-bottom: 10px; font-size: 12px; color: var(--red); }
+  .empty-card { background: var(--bg-card); border-radius: 10px; padding: 20px; text-align: center; font-size: 13px; color: var(--text-sub); border: 1px solid var(--border); margin-bottom: 8px; }
+  .dash-footer { text-align: center; margin-top: 24px; font-size: 10px; color: var(--text-muted); line-height: 1.8; }
+  .loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-sub); font-size: 14px; }
+
+  /* SETTINGS */
+  #settings { padding-bottom: 40px; }
+  .settings-content { padding: 20px 16px 0; }
+  .settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 1.1px; margin: 24px 0 10px; }
+  .settings-card { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 8px; }
+  .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border-light); }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 14px; color: var(--text); }
+  .settings-row-value { font-size: 13px; color: var(--text-sub); font-family: monospace; }
+  .rate-pills { display: flex; gap: 8px; flex-wrap: wrap; padding: 14px 16px; }
+  .rate-pill { background: var(--bg-input); border: 1.5px solid var(--border); border-radius: 20px;
+    color: var(--text-sub); font-size: 13px; font-weight: 600; padding: 8px 18px; cursor: pointer; transition: all 0.15s; }
+  .rate-pill.active { background: var(--orange-dim); border-color: var(--orange); color: var(--orange); }
+  .rate-pill:active { opacity: 0.7; }
+  .btn-secondary { background: transparent; border: 1.5px solid var(--border); border-radius: 9px;
+    color: var(--text-sub); font-size: 14px; font-weight: 600; padding: 13px; width: 100%;
+    cursor: pointer; margin-top: 8px; transition: border-color 0.15s, color 0.15s; }
+  .btn-secondary:active { border-color: var(--orange); color: var(--orange); }
+  .settings-footer { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 28px; line-height: 1.8; }
+
+  /* COLORS */
+  .c-orange { color: var(--orange); }
+  .c-green  { color: var(--green); }
+  .c-red    { color: var(--red); }
+  .c-blue   { color: var(--blue); }
+  .c-purple { color: var(--purple); }
+  .c-yellow { color: var(--yellow); }
+  .c-sub    { color: var(--text-sub); }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- SETUP SCREEN -->
+<div id="setup" class="screen">
+  <div class="setup-hero">
+    <span class="logo-emoji">&#x26CF;&#xFE0F;</span>
+    <div class="app-name">BitPool</div>
+    <div class="app-sub">public-pool.io solo mining monitor</div>
+  </div>
+  <div class="setup-body">
+    <div class="card">
+      <div class="card-title">Enter Your Bitcoin Address</div>
+      <div class="card-sub">This is the wallet address you set as your username in Bitaxe or NerdMiner config.</div>
+      <div class="input-wrap">
+        <input type="text" id="addr-input" placeholder="bc1q..." autocomplete="off"
+               autocorrect="off" autocapitalize="none" spellcheck="false"
+               oninput="onAddrInput(this)">
+      </div>
+      <div class="input-status" id="addr-status"></div>
+      <button class="btn-primary" id="save-btn" onclick="handleSave()" disabled>Start Monitoring &rarr;</button>
+    </div>
+    <div class="info-box">&#x1F512; Your address is stored locally on this device only. No accounts, no servers, no tracking.</div>
+    <div class="setup-footer">BitPool &middot; Data from public-pool.io &middot; No affiliation</div>
+  </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dashboard" class="screen">
+  <div class="page-header">
+    <div>
+      <div class="title">&#x26CF;&#xFE0F; BitPool</div>
+      <div class="subtitle" id="hdr-addr"></div>
+    </div>
+    <div class="header-right">
+      <div class="badge countdown" id="countdown-badge" onclick="triggerRefresh()">&#x21BB; &mdash;</div>
+      <div class="badge icon-btn" onclick="showSettings()">&#x2699;</div>
+    </div>
+  </div>
+  <div class="last-updated" id="last-updated"></div>
+  <div class="content" id="dash-content">
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <div class="loading-text">Fetching miner data...</div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div id="settings" class="screen">
+  <div class="page-header">
+    <div><div class="title">&#x2699; Settings</div></div>
+    <div class="header-right">
+      <div class="badge icon-btn" onclick="backToDashboard()">&#x2715;</div>
+    </div>
+  </div>
+  <div class="settings-content">
+
+    <div class="settings-section-title">WALLET</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-row-label">Bitcoin Address</div>
+        <div class="settings-row-value" id="settings-addr-display">&mdash;</div>
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="changeWallet()">Change Wallet Address</button>
+
+    <div class="settings-section-title">AUTO-REFRESH INTERVAL</div>
+    <div class="settings-card">
+      <div class="rate-pills" id="rate-pills">
+        <div class="rate-pill" data-rate="10"  onclick="setRate(10)">10s</div>
+        <div class="rate-pill" data-rate="20"  onclick="setRate(20)">20s</div>
+        <div class="rate-pill" data-rate="30"  onclick="setRate(30)">30s</div>
+        <div class="rate-pill" data-rate="60"  onclick="setRate(60)">60s</div>
+        <div class="rate-pill" data-rate="120" onclick="setRate(120)">2m</div>
+        <div class="rate-pill" data-rate="300" onclick="setRate(300)">5m</div>
+      </div>
+    </div>
+
+    <div class="settings-section-title">ABOUT</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div class="settings-row-label">Version</div>
+        <div class="settings-row-value">v1.1.1</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">Pool</div>
+        <div class="settings-row-value">public-pool.io</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">Price Data</div>
+        <div class="settings-row-value">CoinGecko</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">Network Data</div>
+        <div class="settings-row-value">mempool.space</div>
+      </div>
+    </div>
+
+    <div class="settings-footer">
+      BitPool &middot; No affiliation with public-pool.io<br>
+      Data provided by CoinGecko API
+    </div>
+  </div>
+</div>
+
+<script>
+// SECURITY
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// TOAST
+let toastTimer = null;
+function showToast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isError ? 'var(--red)' : 'var(--green)';
+  el.style.color = isError ? '#fff' : '#000';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// STORAGE
+const Storage = {
+  getAddress() {
+    try {
+      if (window.AndroidBridge) return window.AndroidBridge.loadAddress() || '';
+      return localStorage.getItem('btc_address') || '';
+    } catch(e) { return ''; }
+  },
+  saveAddress(addr) {
+    try {
+      if (window.AndroidBridge) window.AndroidBridge.saveAddress(addr);
+      localStorage.setItem('btc_address', addr);
+    } catch(e) {}
+  },
+  clearAddress() {
+    try {
+      if (window.AndroidBridge) window.AndroidBridge.clearAddress();
+      localStorage.removeItem('btc_address');
+    } catch(e) {}
+  },
+  getRefreshRate() {
+    try {
+      const v = parseInt(localStorage.getItem('refresh_rate'));
+      return (!isNaN(v) && v >= 10) ? v : 20;
+    } catch(e) { return 20; }
+  },
+  saveRefreshRate(rate) {
+    try { localStorage.setItem('refresh_rate', rate); } catch(e) {}
+  }
+};
+
+// VALIDATION
+function validateBtcAddress(addr) {
+  if (!addr || typeof addr !== 'string') return false;
+  const t = addr.trim();
+  if (/^bc1[qp][a-z0-9]{38,58}$/i.test(t)) return true;
+  if (/^1[a-km-zA-HJ-NP-Z1-9]{25,33}$/.test(t)) return true;
+  if (/^3[a-km-zA-HJ-NP-Z1-9]{25,33}$/.test(t)) return true;
+  return false;
+}
+
+// SETUP: real-time input validation
+function onAddrInput(input) {
+  const val = input.value.trim();
+  const btn = document.getElementById('save-btn');
+  const status = document.getElementById('addr-status');
+  if (!val) {
+    input.className = '';
+    status.textContent = '';
+    status.className = 'input-status';
+    btn.disabled = true;
+    return;
+  }
+  if (validateBtcAddress(val)) {
+    input.className = 'valid';
+    status.textContent = '\u2713 Valid Bitcoin address';
+    status.className = 'input-status ok';
+    btn.disabled = false;
+  } else {
+    input.className = 'invalid';
+    status.textContent = "Doesn't look like a valid Bitcoin address";
+    status.className = 'input-status err';
+    btn.disabled = true;
+  }
+}
+
+function handleSave() {
+  const input = document.getElementById('addr-input');
+  const addr = input.value.trim();
+  if (!validateBtcAddress(addr)) return;
+  Storage.saveAddress(addr);
+  showToast('\u2713 Address saved!');
+  setTimeout(() => showDashboard(addr), 700);
+}
+
+document.getElementById('addr-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleSave();
+});
+
+// API FETCH
+async function apiFetch(url, timeoutMs) {
+  timeoutMs = timeoutMs || 10000;
+  if (!url.startsWith('https://')) throw new Error('HTTPS only');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+      credentials: 'omit', mode: 'cors', redirect: 'error'
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally { clearTimeout(timer); }
+}
+
+let currentAddress = '';
+
+async function fetchAll(address) {
+  if (!validateBtcAddress(address)) throw new Error('Invalid address');
+  const [cR, pR, dR, rR, prR] = await Promise.allSettled([
+    apiFetch('https://public-pool.io:40557/api/client/' + encodeURIComponent(address)),
+    apiFetch('https://public-pool.io:40557/api/pool'),
+    apiFetch('https://mempool.space/api/v1/mining/hashrate/1d'),
+    apiFetch('https://mempool.space/api/v1/difficulty-adjustment'),
+    apiFetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,cad')
+  ]);
+  return {
+    client:      cR.status==='fulfilled'  ? cR.value  : null,
+    pool:        pR.status==='fulfilled'  ? pR.value  : null,
+    diff:        dR.status==='fulfilled'  ? dR.value  : null,
+    retarget:    rR.status==='fulfilled'  ? rR.value  : null,
+    price:       prR.status==='fulfilled' ? prR.value : null,
+    clientError: cR.status==='rejected'   ? cR.reason?.message : null
+  };
+}
+
+// FORMATTING
+function fmtHash(h) {
+  h = parseFloat(h);
+  if (isNaN(h)||h===0) return '0 H/s';
+  if (h>=1e18) return (h/1e18).toFixed(2)+' EH/s';
+  if (h>=1e15) return (h/1e15).toFixed(2)+' PH/s';
+  if (h>=1e12) return (h/1e12).toFixed(2)+' TH/s';
+  if (h>=1e9)  return (h/1e9).toFixed(2)+' GH/s';
+  if (h>=1e6)  return (h/1e6).toFixed(2)+' MH/s';
+  if (h>=1e3)  return (h/1e3).toFixed(2)+' KH/s';
+  return h.toFixed(0)+' H/s';
+}
+function fmtDiff(d) {
+  d = parseFloat(d);
+  if (isNaN(d)) return '\u2014';
+  if (d>=1e15) return (d/1e15).toFixed(2)+'P';
+  if (d>=1e12) return (d/1e12).toFixed(2)+'T';
+  if (d>=1e9)  return (d/1e9).toFixed(2)+'G';
+  if (d>=1e6)  return (d/1e6).toFixed(2)+'M';
+  if (d>=1e3)  return (d/1e3).toFixed(2)+'K';
+  return d.toFixed(2);
+}
+function fmtUptime(iso) {
+  if (!iso) return '\u2014';
+  const s = Math.floor((Date.now()-new Date(iso))/1000);
+  const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60);
+  if (d>0) return d+'d '+h+'h '+m+'m';
+  if (h>0) return h+'h '+m+'m';
+  return m+'m';
+}
+function isOnline(iso) { return iso && (Date.now()-new Date(iso)) < 3*60*1000; }
+function fmtLastSeen(iso) {
+  if (!iso) return '\u2014';
+  const s = Math.floor((Date.now()-new Date(iso))/1000);
+  if (s<10) return 'just now';
+  if (s<60) return s+'s ago';
+  if (s<3600) return Math.floor(s/60)+'m ago';
+  return Math.floor(s/3600)+'h ago';
+}
+function calcExpected(myH, netDiff) {
+  if (!myH||!netDiff||myH===0) return null;
+  const secs = (netDiff*Math.pow(2,32))/myH;
+  const days = secs/86400, years = days/365.25;
+  let fmt;
+  if (days<1) fmt = Math.round(days*24)+' hours';
+  else if (days<30) fmt = days.toFixed(1)+' days';
+  else if (days<365) fmt = (days/30.44).toFixed(1)+' months';
+  else fmt = years.toFixed(1)+' years';
+  return { days:days, years:years, fmt:fmt };
+}
+function calcProb(myH, netDiff) {
+  if (!myH||!netDiff) return null;
+  const p = (myH*600)/(netDiff*Math.pow(2,32));
+  return { pctDay:(p*144*100).toFixed(6), pctYear:(p*144*365.25*100).toFixed(3) };
+}
+function fmtMoney(n) { return parseInt(n).toLocaleString('en-CA'); }
+
+// RENDER DASHBOARD
+function renderDashboard(data) {
+  const { client, pool, diff, retarget, price, clientError } = data;
+  const workers  = (client&&client.workers) ? client.workers : [];
+  const totalH   = workers.reduce(function(s,w){ return s+parseFloat(w.hashRate||0); }, 0);
+  const onlineW  = workers.filter(function(w){ return isOnline(w.lastSeen); });
+  const netDiff  = diff ? (diff.currentDifficulty||diff.difficulty) : null;
+  const expected = calcExpected(totalH, netDiff);
+  const prob     = calcProb(totalH, netDiff);
+  const btcUsd   = price ? price.bitcoin.usd : null;
+  const btcCad   = price ? price.bitcoin.cad : null;
+  const BTC      = 3.125;
+  const rate     = Storage.getRefreshRate();
+  const rateStr  = rate >= 60 ? (rate/60)+'m' : rate+'s';
+
+  let html = '';
+  if (clientError) html += '<div class="error-banner">\u26A0 '+escHtml(clientError)+'</div>';
+
+  html += '<div class="section-hdr"><span>MY MINERS</span></div>';
+  html += '<div class="row"><div class="stat-card"><div class="stat-label">TOTAL HASHRATE</div><div class="stat-value c-orange">'+escHtml(fmtHash(totalH))+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">ACTIVE WORKERS</div><div class="stat-value '+(onlineW.length>0?'c-green':'c-red')+'">'+onlineW.length+' / '+workers.length+'</div></div></div>';
+  html += '<div class="row"><div class="stat-card"><div class="stat-label">ALL-TIME BEST DIFF</div><div class="stat-value c-purple">'+escHtml(fmtDiff(client&&client.bestDifficulty))+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">WORKERS REGISTERED</div><div class="stat-value c-blue">'+(client&&client.workersCount!=null?client.workersCount:'\u2014')+'</div></div></div>';
+
+  if (workers.length===0) html += '<div class="empty-card">No active workers found for this address.</div>';
+  workers.forEach(function(w) {
+    var online = isOnline(w.lastSeen);
+    html += '<div class="worker-card"><div class="worker-header"><div><div class="worker-session">'+escHtml(w.sessionId)+'</div><div class="worker-name">'+escHtml(w.name)+'</div></div>';
+    html += '<div class="status-badge '+(online?'status-online':'status-offline')+'"><div class="status-dot" style="background:'+(online?'var(--green)':'var(--red)')+'"></div>'+(online?'ONLINE':'OFFLINE')+'</div></div>';
+    html += '<div class="worker-stats">';
+    html += '<div class="worker-stat"><div class="worker-stat-label">HASHRATE</div><div class="worker-stat-value c-orange">'+escHtml(fmtHash(w.hashRate))+'</div></div>';
+    html += '<div class="worker-stat"><div class="worker-stat-label">BEST DIFF</div><div class="worker-stat-value c-purple">'+escHtml(fmtDiff(w.bestDifficulty))+'</div></div>';
+    html += '<div class="worker-stat"><div class="worker-stat-label">UPTIME</div><div class="worker-stat-value c-blue">'+escHtml(fmtUptime(w.startTime))+'</div></div>';
+    html += '<div class="worker-stat"><div class="worker-stat-label">LAST SEEN</div><div class="worker-stat-value '+(online?'c-green':'c-sub')+'">'+escHtml(fmtLastSeen(w.lastSeen))+'</div></div>';
+    html += '</div></div>';
+  });
+
+  html += '<div class="section-hdr"><span>LOTTERY ODDS</span></div>';
+  html += '<div class="row"><div class="stat-card"><div class="stat-label">CHANCE PER DAY</div><div class="stat-value c-yellow">'+(prob?prob.pctDay+'%':'\u2014')+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">CHANCE PER YEAR</div><div class="stat-value c-yellow">'+(prob?prob.pctYear+'%':'\u2014')+'</div></div></div>';
+  html += '<div class="row"><div class="stat-card full"><div class="stat-label">EXPECTED WAIT</div><div class="stat-value lg c-orange">'+(expected?escHtml(expected.fmt):'\u2014')+'</div>';
+  html += '<div class="stat-sub">'+(expected?expected.years.toFixed(1)+' years on average':'Calculating...')+'</div></div></div>';
+
+  if (btcUsd&&btcCad) {
+    html += '<div class="section-hdr"><span>BLOCK REWARD VALUE</span></div>';
+    html += '<div class="row"><div class="stat-card"><div class="stat-label">IN USD</div><div class="stat-value c-green">$'+fmtMoney(BTC*btcUsd)+'</div><div class="stat-sub">'+BTC+' BTC</div></div>';
+    html += '<div class="stat-card"><div class="stat-label">IN CAD</div><div class="stat-value c-green">$'+fmtMoney(BTC*btcCad)+'</div><div class="stat-sub">Canadian dollars</div></div></div>';
+    html += '<div class="row"><div class="stat-card"><div class="stat-label">BTC PRICE (USD)</div><div class="stat-value c-orange">$'+fmtMoney(btcUsd)+'</div></div>';
+    html += '<div class="stat-card"><div class="stat-label">BTC PRICE (CAD)</div><div class="stat-value c-orange">$'+fmtMoney(btcCad)+'</div></div></div>';
+  }
+
+  html += '<div class="section-hdr"><span>NETWORK &amp; POOL</span></div>';
+  html += '<div class="row"><div class="stat-card"><div class="stat-label">BLOCK HEIGHT</div><div class="stat-value c-blue">'+(pool&&pool.blockHeight?pool.blockHeight.toLocaleString():'\u2014')+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">POOL FEE</div><div class="stat-value c-blue">'+(pool?pool.fee+'%':'\u2014')+'</div><div class="stat-sub">solo mining</div></div></div>';
+  html += '<div class="row"><div class="stat-card"><div class="stat-label">POOL HASHRATE</div><div class="stat-value c-sub">'+(pool?escHtml(fmtHash(pool.totalHashRate)):'\u2014')+'</div></div>';
+  html += '<div class="stat-card"><div class="stat-label">POOL MINERS</div><div class="stat-value c-sub">'+(pool&&pool.totalMiners?pool.totalMiners.toLocaleString():'\u2014')+'</div></div></div>';
+
+  if (netDiff) {
+    html += '<div class="row"><div class="stat-card full"><div class="stat-label">NETWORK DIFFICULTY</div><div class="stat-value lg c-sub">'+escHtml(fmtDiff(netDiff))+'</div></div></div>';
+  }
+  if (retarget&&retarget.remainingBlocks!=null) {
+    var dc = retarget.difficultyChange||0;
+    html += '<div class="row"><div class="stat-card"><div class="stat-label">BLOCKS TO RETARGET</div><div class="stat-value c-yellow">'+retarget.remainingBlocks+'</div></div>';
+    html += '<div class="stat-card"><div class="stat-label">RETARGET CHANGE</div><div class="stat-value '+(dc>=0?'c-red':'c-green')+'">'+(dc>=0?'+':'')+dc.toFixed(2)+'%</div></div></div>';
+  }
+  if (totalH>0&&pool&&pool.totalHashRate) {
+    html += '<div class="row"><div class="stat-card full"><div class="stat-label">YOUR SHARE OF POOL</div><div class="stat-value lg c-purple">'+(totalH/pool.totalHashRate*100).toFixed(6)+'%</div></div></div>';
+  }
+
+  html += '<div class="dash-footer">Tap \u21BB to refresh &middot; Auto-refreshes every '+rateStr+'<br>Data: public-pool.io &middot; mempool.space &middot; CoinGecko</div>';
+  document.getElementById('dash-content').innerHTML = html;
+}
+
+// AUTO-REFRESH
+let countdownVal = 20;
+let countdownTimer = null;
+let autoRefreshTimer = null;
+
+function startCountdown() {
+  clearInterval(countdownTimer);
+  countdownVal = Storage.getRefreshRate();
+  updateCountdownBadge();
+  countdownTimer = setInterval(function() {
+    countdownVal = countdownVal <= 1 ? Storage.getRefreshRate() : countdownVal - 1;
+    updateCountdownBadge();
+  }, 1000);
+}
+function updateCountdownBadge() {
+  var el = document.getElementById('countdown-badge');
+  if (el) el.textContent = '\u21BB ' + countdownVal + 's';
+}
+function startAutoRefresh() {
+  clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(function() { refreshData(); }, Storage.getRefreshRate()*1000);
+}
+async function refreshData() {
+  try {
+    var data = await fetchAll(currentAddress);
+    renderDashboard(data);
+    var now = new Date();
+    document.getElementById('last-updated').textContent =
+      'Updated ' + now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    startCountdown();
+  } catch(e) {
+    document.getElementById('dash-content').innerHTML =
+      '<div class="error-banner">\u26A0 Failed to load: '+escHtml(e.message)+'</div>';
+  }
+}
+function triggerRefresh() {
+  clearInterval(autoRefreshTimer);
+  refreshData();
+  startAutoRefresh();
+  startCountdown();
+}
+
+// SETTINGS
+function setRate(rate) {
+  Storage.saveRefreshRate(rate);
+  document.querySelectorAll('.rate-pill').forEach(function(p) {
+    p.classList.toggle('active', parseInt(p.dataset.rate)===rate);
+  });
+  clearInterval(autoRefreshTimer);
+  startAutoRefresh();
+  startCountdown();
+  showToast('\u2713 Refresh set to ' + (rate>=60?(rate/60)+'m':rate+'s'));
+}
+function changeWallet() {
+  clearInterval(autoRefreshTimer);
+  clearInterval(countdownTimer);
+  var saved = Storage.getAddress();
+  var input = document.getElementById('addr-input');
+  input.value = saved;
+  onAddrInput(input);
+  showScreen('setup');
+}
+function backToDashboard() {
+  showDashboard(currentAddress);
+}
+
+// SCREEN MANAGEMENT
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function showSettings() {
+  clearInterval(autoRefreshTimer);
+  clearInterval(countdownTimer);
+  var addr = Storage.getAddress();
+  document.getElementById('settings-addr-display').textContent =
+    addr ? addr.slice(0,8)+'...'+addr.slice(-8) : '\u2014';
+  var rate = Storage.getRefreshRate();
+  document.querySelectorAll('.rate-pill').forEach(function(p){
+    p.classList.toggle('active', parseInt(p.dataset.rate)===rate);
+  });
+  showScreen('settings');
+}
+function showDashboard(address) {
+  currentAddress = address;
+  document.getElementById('hdr-addr').textContent = address.slice(0,10)+'...'+address.slice(-10);
+  showScreen('dashboard');
+  document.getElementById('dash-content').innerHTML =
+    '<div class="loading-screen"><div class="spinner"></div><div class="loading-text">Fetching miner data...</div></div>';
+  refreshData();
+  startAutoRefresh();
+  startCountdown();
+}
+
+// INIT
+(function() {
+  var saved = Storage.getAddress();
+  if (saved && validateBtcAddress(saved)) {
+    showDashboard(saved);
+  } else {
+    showScreen('setup');
+  }
+})();
+</script>
+</body>
+</html>
